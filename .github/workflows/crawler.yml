@@ -1,13 +1,14 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: HTML Corpus Collection and Annotation
+name: Corpus Collection and Annotation
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   IMPLEMENTATION_TYPE: html
@@ -158,7 +159,8 @@ jobs:
     name: Crawler checks config
     needs: [
       code-style,
-      mypy-checks
+      mypy-checks,
+      flake8-checks
     ]
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -176,7 +178,8 @@ jobs:
     name: Crawler checks
     needs: [
       code-style,
-      mypy-checks
+      mypy-checks,
+      flake8-checks
     ]
     runs-on: ubuntu-latest
     timeout-minutes: 4
@@ -193,7 +196,8 @@ jobs:
     name: Parser checks
     needs: [
       code-style,
-      mypy-checks
+      mypy-checks,
+      flake8-checks
     ]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -253,10 +257,7 @@ jobs:
   milestone-1-crawler-is-working:
     name: Crawler is accepted!
     needs: [
-      checking-articles-dataset,
-      requirements-check,
-      flake8-checks,
-      pr-name-check
+      checking-articles-dataset
     ]
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -495,8 +496,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [ running-pos-pipeline-tests ]
-    env:
-      PR_NAME: ${{ github.event.pull_request.title }}
 
     steps:
       - uses: actions/checkout@v3
@@ -504,10 +503,12 @@ jobs:
         uses: fipl-hse/setup-env-action@v0.4
       - name: Download previously collected dataset
         continue-on-error: true
+        if: ${{ env.REPOSITORY_TYPE == 'admin' }}
         uses: actions/download-artifact@v3
         with:
           name: processed-dataset
       - name: Run start
+        if: ${{ env.REPOSITORY_TYPE == 'admin' }}
         run: |
           bash config/unpack_archived_dataset.sh
           bash config/collect_coverage/run_coverage.sh "$PR_NAME"
