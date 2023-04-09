@@ -225,9 +225,12 @@ class HTMLParser:
             self.article.author = [author.text for author in authors]
         else:
             self.article.author = ['NOT FOUND']
-        article_tags = article_soup.find_all('ul', {'itemprop': 'keywords'})
-        self.article.topics = [tag.text for tag in article_tags]
-        self.article.topics = [topic.replace('\n', ' ') for topic in self.article.topics]
+        try:
+            article_tags = article_soup.find_all('ul', {'itemprop': 'keywords'})[0]
+            article_tags_li = article_tags.find_all('li')
+            self.article.topics = [tag.find_all('a')[0].text for tag in article_tags_li]
+        except IndexError:
+            self.article.topics = []
         article_date = article_soup.find_all('span', {'class': 'news-datetime mb-10 mr-20'})[0]
         self.article.date = self.unify_date_format(article_date.text)
 
