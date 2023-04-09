@@ -9,6 +9,7 @@ from core_utils import constants
 from pathlib import Path
 import requests, json, re, shutil
 from bs4 import BeautifulSoup
+import datetime, locale
 
 class IncorrectSeedURLError(TypeError):
     pass
@@ -218,13 +219,29 @@ class HTMLParser:
         article = article_soup.find_all('div', {'itemprop': 'headline'})[0]
         article_title = article.find_all('h1')[0]
         self.article.title = article_title.text
-        self.article.author = ["NOT FOUND"]
+        article_authors = article_soup.find_all('span', {'itemprop': 'author'})[0]
+        authors = article_authors.find_all('span', {'itemprop': 'name'})
+        if authors:
+            self.article.author = [author.text for author in authors]
+        else:
+            self.article.author = ['NOT FOUND']
+        article_tags = article_soup.find_all('ul', {'itemprop': 'keywords'})
+        self.article.topics = [tag.text for tag in article_tags]
+        self.article.topics = [topic.replace('\n', ' ') for topic in self.article.topics]
+        article_date = article_soup.find_all('span', {'class': 'news-datetime mb-10 mr-20'})[0]
+        self.article.date = self.unify_date_format(article_date.text)
 
-    # def unify_date_format(self, date_str: str) -> datetime.datetime:
-    #     """
-    #     Unifies date format
-    #     """
-    #     pass
+    def unify_date_format(self, date_str: str) -> datetime.datetime:
+        """
+        Unifies date format
+        """
+        date_list = date_str.split()
+        date_list[1] = date_list[1][:3]
+        if date_list[1] == 'мая':
+            date_list[1] = 'май'
+        date_str = ' '.join(date_list)
+        locale.setlocale(category=locale.LC_ALL, locale='Russian')
+        return datetime.datetime.strptime(date_str, '%d %b %Y г. %H:%M')
 
     def parse(self) -> Union[Article, bool, list]:
         """
