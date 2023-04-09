@@ -4,7 +4,7 @@ Crawler implementation
 from typing import Pattern, Union
 from core_utils.config_dto import ConfigDTO
 from core_utils.article.article import Article
-from core_utils.article.io import to_raw
+from core_utils.article.io import to_raw, to_meta
 from core_utils import constants
 from pathlib import Path
 import requests, json, re, shutil
@@ -215,7 +215,10 @@ class HTMLParser:
         """
         Finds meta information of article
         """
-        pass
+        article = article_soup.find_all('div', {'itemprop': 'headline'})[0]
+        article_title = article.find_all('h1')[0]
+        self.article.title = article_title.text
+        self.article.author = ["NOT FOUND"]
 
     # def unify_date_format(self, date_str: str) -> datetime.datetime:
     #     """
@@ -230,6 +233,7 @@ class HTMLParser:
         response = requests.get(self.full_url)
         bs = BeautifulSoup(response.text, 'lxml')
         self._fill_article_with_text(bs)
+        self._fill_article_with_meta_information(bs)
         return self.article
 
 
@@ -256,6 +260,7 @@ def main() -> None:
         parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
         article = parser.parse()
         to_raw(article)
+        to_meta(article)
 
 
 if __name__ == "__main__":
