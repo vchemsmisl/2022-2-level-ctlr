@@ -250,7 +250,8 @@ class HTMLParser:
         try:
             article_tags = article_soup.find_all('ul', {'itemprop': 'keywords'})[0]
             article_tags_li = article_tags.find_all('li')
-            self.article.topics = [tag.find_all('a')[0].text for tag in article_tags_li]
+            self.article.topics = [tag.find_all('a')[0].text.replace('"', '&quot;') for tag in article_tags_li]
+            print(self.article.topics)
         except IndexError:
             self.article.topics = []
         article_date = article_soup.find_all('span', {'class': 'news-datetime mb-10 mr-20'})[0]
