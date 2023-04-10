@@ -9,7 +9,7 @@ from core_utils import constants
 from pathlib import Path
 import requests, json, re, shutil
 from bs4 import BeautifulSoup
-import datetime, locale
+import datetime
 
 class IncorrectSeedURLError(TypeError):
     pass
@@ -158,6 +158,7 @@ class Crawler:
         self.urls = []
         self._seed_urls = self.config.get_seed_urls()
 
+
     def _extract_url(self, article_bs: BeautifulSoup) -> str:
         """
         Finds and retrieves URL from HTML
@@ -168,19 +169,40 @@ class Crawler:
         """
         Finds articles
         """
-        art_num = 0
+        num_arts = self.config.get_num_articles()
         for url in self._seed_urls:
-            response = make_request(url, self.config)
+            response = make_request(f'{url}?per-page={num_arts}', self.config)
             if response.status_code != 200:
                 continue
             main_bs = BeautifulSoup(response.text, 'lxml')
             feed_lines = main_bs.find_all('a', {'class': 'd-block mb-0'})
-            for line in feed_lines:
+            for line in feed_lines[:num_arts]:
                 self.urls.append(self._extract_url(line))
-                art_num += 1
-                if art_num >= self.config.get_num_articles():
-                    break
 
+        # WAS JUST TRYING ANOTHER WAY OF DYNAMIC SITE CRAWLING, I'LL DELETE IT LATER
+        # art_num = 0
+        # num_feed_lines = 0
+        # for url in self._seed_urls:
+        #     while num_feed_lines <= self.config.get_num_articles():
+        #         self.driver.get(url)
+        #         self.driver.implicitly_wait(10)
+        #         button = wait.WebDriverWait(self.driver, 10).until(
+        #             expected_conditions.presence_of_element_located((By.CLASS_NAME,
+        #                  "btn btn-show-more w-100 font-weight-bold")))
+                # button = [button for button in self.driver.find_elements(By.CLASS_NAME,
+                #          "btn btn-show-more w-100 font-weight-bold")][0]
+                # button.click()
+                # main_bs = BeautifulSoup(self.driver.page_source, 'lxml')
+                # feed_lines = main_bs.find_all('a', {'class': 'd-block mb-0'})
+                # button_find = main_bs.find_all('a', {'class': 'btn btn-show-more w-100 font-weight-bold'})[0]
+                # print(button_find)
+            #     num_feed_lines += len(feed_lines)
+            # feed_lines += feed_lines[:self.config.get_num_articles()]
+            # for line in feed_lines:
+            #     self.urls.append(self._extract_url(line))
+                # art_num += 1
+                # if art_num >= self.config.get_num_articles():
+                #     break
 
     def get_search_urls(self) -> list:
         """
@@ -238,13 +260,24 @@ class HTMLParser:
         """
         Unifies date format
         """
+        mounths_dict = {
+            'января': 'January',
+            'февраля': 'February',
+            'марта': 'March',
+            'апреля': 'April',
+            'мая': 'May',
+            'июня': 'June',
+            'июля': 'July',
+            'августа': 'August',
+            'сентября': 'September',
+            'октября': 'October',
+            'ноября': 'November',
+            'декабря': 'December'
+        }
         date_list = date_str.split()
-        date_list[1] = date_list[1][:3]
-        if date_list[1] == 'мая':
-            date_list[1] = 'май'
+        date_list[1] = mounths_dict[date_list[1]]
         date_str = ' '.join(date_list)
-        locale.setlocale(category=locale.LC_ALL, locale='Russian')
-        return datetime.datetime.strptime(date_str, '%d %b %Y г. %H:%M')
+        return datetime.datetime.strptime(date_str, '%d %B %Y г. %H:%M')
 
     def parse(self) -> Union[Article, bool, list]:
         """
