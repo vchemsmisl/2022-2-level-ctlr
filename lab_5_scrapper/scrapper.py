@@ -189,7 +189,7 @@ class Crawler:
         Finds and retrieves URL from HTML
         """
         url: Union[str, list, None] = article_bs.get('href')
-        return url
+        return url if isinstance(url, str) else None
 
     def find_articles(self) -> None:
         """
@@ -339,7 +339,7 @@ def main() -> None:
     crawler.find_articles()
     for i, full_url in enumerate(crawler.urls, 1):
         parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
-        article: Article = parser.parse()
+        article: Union[Article, bool, list] = parser.parse()
         to_raw(article)
         to_meta(article)
 
