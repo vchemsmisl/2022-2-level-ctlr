@@ -1,13 +1,13 @@
 """
 Crawler implementation
 """
-import requests
-import json
 import re
 import shutil
+import json
 import datetime
 from typing import Pattern, Union
 from pathlib import Path
+import requests
 from bs4 import BeautifulSoup
 from core_utils.config_dto import ConfigDTO
 from core_utils.article.article import Article
