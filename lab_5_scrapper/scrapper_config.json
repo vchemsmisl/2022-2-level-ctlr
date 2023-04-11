@@ -3,7 +3,7 @@
     "headers": {"user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/111.0"},
     "total_articles_to_find_and_parse": 100,
     "encoding": "utf8",
-    "timeout": 3,
+    "timeout": 5,
     "should_verify_certificate": true,
     "headless_mode": true
 }

@@ -1,3 +1,2 @@
-requests
-bs4
-selenium
+requests==2.28.2
+bs4==0.0.1
