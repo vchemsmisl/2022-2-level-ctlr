@@ -5,8 +5,8 @@ import datetime
 import json
 import re
 import shutil
-from typing import Pattern, Union
 from pathlib import Path
+from typing import Pattern, Union
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,7 +14,9 @@ from bs4 import BeautifulSoup
 from core_utils.article.article import Article
 from core_utils.article.io import to_raw, to_meta
 from core_utils.config_dto import ConfigDTO
-from core_utils import constants
+from core_utils.constants import (ASSETS_PATH, CRAWLER_CONFIG_PATH,
+                                  NUM_ARTICLES_UPPER_LIMIT,
+                                  TIMEOUT_LOWER_LIMIT, TIMEOUT_UPPER_LIMIT)
 
 
 class IncorrectSeedURLError(TypeError):
@@ -99,14 +101,14 @@ class Config:
         if not isinstance(self.config.total_articles, int) or \
                 self.config.total_articles <= 0:
             raise IncorrectNumberOfArticlesError('total number of articles to parse is not integer')
-        if not 1 <= self.config.total_articles <= 150:
+        if not 1 <= self.config.total_articles <= NUM_ARTICLES_UPPER_LIMIT:
             raise NumberOfArticlesOutOfRangeError('total number of articles is out of range')
         if not isinstance(self.config.headers, dict):
             raise IncorrectHeadersError('headers are not in a form of dictionary')
         if not isinstance(self.config.encoding, str):
             raise IncorrectEncodingError('encoding must be specified as a string')
         if not isinstance(self.config.timeout, int) or \
-                not 0 <= self.config.timeout <= 60:
+                not TIMEOUT_LOWER_LIMIT <= self.config.timeout <= TIMEOUT_UPPER_LIMIT:
             raise IncorrectTimeoutError('timeout value must be a positive integer less than 60')
         if not isinstance(self.config.should_verify_certificate, bool):
             raise IncorrectVerifyError('verify certificate value must either be True or False')
@@ -335,8 +337,8 @@ def main() -> None:
     """
     Entrypoint for scrapper module
     """
-    prepare_environment(constants.ASSETS_PATH)
-    configuration = Config(path_to_config=constants.CRAWLER_CONFIG_PATH)
+    prepare_environment(ASSETS_PATH)
+    configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
     crawler = Crawler(config=configuration)
     crawler.find_articles()
     for i, full_url in enumerate(crawler.urls, 1):
