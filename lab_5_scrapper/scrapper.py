@@ -1,14 +1,14 @@
 """
 Crawler implementation
 """
-from typing import Pattern, Union
-from pathlib import Path
-from bs4 import BeautifulSoup
 import requests
 import json
 import re
 import shutil
 import datetime
+from typing import Pattern, Union
+from pathlib import Path
+from bs4 import BeautifulSoup
 from core_utils.config_dto import ConfigDTO
 from core_utils.article.article import Article
 from core_utils.article.io import to_raw, to_meta
@@ -18,38 +18,38 @@ class IncorrectSeedURLError(TypeError):
     '''
     Raised when seed URLs are in incorrect form
     '''
-    pass
+
 class NumberOfArticlesOutOfRangeError(Exception):
     '''
     Raised when the number of articles is
     out of range from 1 to 150
     '''
-    pass
+
 class IncorrectNumberOfArticlesError(Exception):
     '''
     Raised when the number of articles is not int
     '''
-    pass
+
 class IncorrectHeadersError(Exception):
     '''
     Raised when headers are in incorrect form
     '''
-    pass
+
 class IncorrectEncodingError(Exception):
     '''
     Raised when encoding is in incorrect form
     '''
-    pass
+
 class IncorrectTimeoutError(Exception):
     '''
     Raised when timeout is in incorrect form
     '''
-    pass
+
 class IncorrectVerifyError(Exception):
     '''
     Raise when verify certificate is in incorrect form
     '''
-    pass
+
 
 class Config:
     """
@@ -185,7 +185,7 @@ class Crawler:
         """
         Finds and retrieves URL from HTML
         """
-        url: str = article_bs.get('href')
+        url: Union[str, list, None] = article_bs.get('href')
         return url
 
     def find_articles(self) -> None:
@@ -244,7 +244,7 @@ class HTMLParser:
         self.full_url = full_url
         self.article_id = article_id
         self.config = config
-        self.article = Article(full_url, article_id)
+        self.article: Article = Article(full_url, article_id)
 
     def _fill_article_with_text(self, article_soup: BeautifulSoup) -> None:
         """
@@ -306,10 +306,13 @@ class HTMLParser:
         """
         Parses each article
         """
-        response = requests.get(self.full_url)
-        bs = BeautifulSoup(response.text, 'lxml')
-        self._fill_article_with_text(bs)
-        self._fill_article_with_meta_information(bs)
+        response = requests.get(self.full_url,
+                                headers=self.config.get_headers(),
+                                timeout=self.config.get_timeout())
+        response.encoding = self.config.get_encoding()
+        b_s = BeautifulSoup(response.text, 'lxml')
+        self._fill_article_with_text(b_s)
+        self._fill_article_with_meta_information(b_s)
         return self.article
 
 
