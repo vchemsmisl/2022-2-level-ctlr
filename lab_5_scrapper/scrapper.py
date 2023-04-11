@@ -191,6 +191,7 @@ class Crawler:
         url: Union[str, list, None] = article_bs.get('href')
         if isinstance(url, str):
             return url
+        return None
 
     def find_articles(self) -> None:
         """
