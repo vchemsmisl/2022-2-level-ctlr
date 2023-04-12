@@ -272,8 +272,8 @@ class HTMLParser:
         article = article_soup.find('div', {'itemprop': 'headline'})
         article_title = article.find('h1')
         self.article.title = article_title.text
-        article_authors = article_soup.find('span', {'itemprop': 'author'})
-        article_authors = article_authors.find('meta', itemprop='name')
+        article_authors = article_soup.find_all('span',
+                        {'itemprop': 'author'})[0].find('meta', itemprop='name')
         authors = article_authors.get('content')
         if authors:
             self.article.author = [authors]
