@@ -274,7 +274,7 @@ class HTMLParser:
         article_title = article.find('h1')
         self.article.title = article_title.text
         article_authors = article_soup.find('span', {'itemprop': 'author'})
-        article_authors = article_authors.find('meta', {'itemprop': 'name'})
+        article_authors = article_authors.find('meta', itemprop='name')
         authors = article_authors.get('content')
         if authors:
             self.article.author = [authors]
@@ -287,8 +287,9 @@ class HTMLParser:
                                    for tag in article_tags_li]
         except IndexError:
             self.article.topics = []
-        article_date: str = article_soup.find('meta', {'itemprop': 'datePublished'}).get('content')
-        self.article.date = self.unify_date_format(article_date)
+        article_date = article_soup.find('meta', {'itemprop': 'datePublished'}).get('content')
+        if isinstance(article_date, str):
+            self.article.date = self.unify_date_format(article_date)
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
         """
