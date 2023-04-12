@@ -194,7 +194,7 @@ class Crawler:
         Finds and retrieves URL from HTML
         """
         url: Union[str, list, None] = article_bs.get('href')
-        if isinstance(url, str) or \
+        if isinstance(url, str) and \
                 'https://www.interfax-russia.ru/volga/news/' in url:
             return url
         return ''
@@ -273,8 +273,8 @@ class HTMLParser:
         article = article_soup.find('div', {'itemprop': 'headline'})
         article_title = article.find('h1')
         self.article.title = article_title.text
-        article_authors = article_soup.find('span',
-                        {'itemprop': 'author'}).find('meta', {'itemprop': 'name'})
+        article_authors = article_soup.find('span', {'itemprop': 'author'})
+        article_authors = article_authors.find('meta', {'itemprop': 'name'})
         authors = article_authors.get('content')
         if authors:
             self.article.author = [authors]
@@ -287,8 +287,8 @@ class HTMLParser:
                                    for tag in article_tags_li]
         except IndexError:
             self.article.topics = []
-        article_date = article_soup.find('meta', {'itemprop': 'datePublished'})
-        self.article.date = self.unify_date_format(article_date.get('content'))
+        article_date: str = article_soup.find('meta', {'itemprop': 'datePublished'}).get('content')
+        self.article.date = self.unify_date_format(article_date)
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
         """
