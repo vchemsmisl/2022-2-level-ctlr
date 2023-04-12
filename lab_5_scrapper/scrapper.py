@@ -3,8 +3,10 @@ Crawler implementation
 """
 import datetime
 import json
+import random
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import Pattern, Union
 
@@ -163,6 +165,7 @@ def make_request(url: str, config: Config) -> requests.models.Response:
     Delivers a response from a request
     with given configuration
     """
+    time.sleep(random.randint(1, 6))
     response = requests.get(url,
                         headers=config.get_headers(),
                         timeout=config.get_timeout())
@@ -191,7 +194,8 @@ class Crawler:
         Finds and retrieves URL from HTML
         """
         url: Union[str, list, None] = article_bs.get('href')
-        if isinstance(url, str):
+        if isinstance(url, str) or \
+                'https://www.interfax-russia.ru/volga/news/' in url:
             return url
         return ''
 
@@ -257,7 +261,7 @@ class HTMLParser:
         """
         Finds text of article
         """
-        article = article_soup.find_all('div', {'itemprop': 'articleBody'})[0]
+        article = article_soup.find('div', {'itemprop': 'articleBody'})
         article_list = article.find_all('p')
         paragraphs = [par.text for par in article_list]
         self.article.text = '\n'.join(paragraphs)
@@ -266,48 +270,31 @@ class HTMLParser:
         """
         Finds meta information of article
         """
-        article = article_soup.find_all('div', {'itemprop': 'headline'})[0]
-        article_title = article.find_all('h1')[0]
+        article = article_soup.find('div', {'itemprop': 'headline'})
+        article_title = article.find('h1')
         self.article.title = article_title.text
-        article_authors = article_soup.find_all('span', {'itemprop': 'author'})[0]
-        authors = article_authors.find_all('span', {'itemprop': 'name'})
+        article_authors = article_soup.find('span',
+                        {'itemprop': 'author'}).find('meta', {'itemprop': 'name'})
+        authors = article_authors.get('content')
         if authors:
-            self.article.author = [author.text for author in authors]
+            self.article.author = [authors]
         else:
             self.article.author = ['NOT FOUND']
         try:
-            article_tags = article_soup.find_all('ul', {'itemprop': 'keywords'})[0]
+            article_tags = article_soup.find('ul', {'itemprop': 'keywords'})
             article_tags_li = article_tags.find_all('li')
-            self.article.topics = [tag.find_all('a')[0].text.replace('"', '&quot;')
+            self.article.topics = [tag.text.replace('"', '&quot;')
                                    for tag in article_tags_li]
-            print(self.article.topics)
         except IndexError:
             self.article.topics = []
-        article_date = article_soup.find_all('span', {'class': 'news-datetime mb-10 mr-20'})[0]
-        self.article.date = self.unify_date_format(article_date.text)
+        article_date = article_soup.find('meta', {'itemprop': 'datePublished'})
+        self.article.date = self.unify_date_format(article_date.get('content'))
 
     def unify_date_format(self, date_str: str) -> datetime.datetime:
         """
         Unifies date format
         """
-        mounths_dict = {
-            'января': 'January',
-            'февраля': 'February',
-            'марта': 'March',
-            'апреля': 'April',
-            'мая': 'May',
-            'июня': 'June',
-            'июля': 'July',
-            'августа': 'August',
-            'сентября': 'September',
-            'октября': 'October',
-            'ноября': 'November',
-            'декабря': 'December'
-        }
-        date_list = date_str.split()
-        date_list[1] = mounths_dict[date_list[1]]
-        date_str = ' '.join(date_list)
-        return datetime.datetime.strptime(date_str, '%d %B %Y г. %H:%M')
+        return datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S%z')
 
     def parse(self) -> Union[Article, bool, list]:
         """
@@ -329,8 +316,7 @@ def prepare_environment(base_path: Union[Path, str]) -> None:
     """
     if base_path.exists():
         shutil.rmtree(base_path)
-    new_path = Path(__file__).parent / base_path
-    new_path.mkdir(exist_ok=True, parents=True)
+    base_path.mkdir(parents=True)
 
 
 def main() -> None:
