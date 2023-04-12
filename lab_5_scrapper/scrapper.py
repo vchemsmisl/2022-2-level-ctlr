@@ -212,7 +212,6 @@ class Crawler:
             feed_lines = main_bs.find_all('a', {'class': 'd-block mb-0'})
             for line in feed_lines[:num_arts]:
                 self.urls.append(self._extract_url(line))
-
         # WAS JUST TRYING ANOTHER WAY OF DYNAMIC SITE CRAWLING, I'LL DELETE IT LATER
         # IT DOESN'T WORK FOR NO APPARENT REASONS...
         # num_feed_lines = 0
