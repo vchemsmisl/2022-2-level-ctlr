@@ -22,40 +22,35 @@ from core_utils.constants import (ASSETS_PATH, CRAWLER_CONFIG_PATH,
 
 
 class IncorrectSeedURLError(TypeError):
-    '''
+    """
     Raised when seed URLs are in incorrect form
-    '''
+    """
 
 class NumberOfArticlesOutOfRangeError(Exception):
-    '''
-    Raised when the number of articles is
-    out of range from 1 to 150
-    '''
+
+    """Raised when the number of articles is
+    out of range from 1 to 150"""
 
 class IncorrectNumberOfArticlesError(Exception):
-    '''
-    Raised when the number of articles is not int
-    '''
+
+    """Raised when the number of articles is not int"""
 
 class IncorrectHeadersError(Exception):
-    '''
-    Raised when headers are in incorrect form
-    '''
+
+    """Raised when headers are in incorrect form"""
+
 
 class IncorrectEncodingError(Exception):
-    '''
-    Raised when encoding is in incorrect form
-    '''
+
+    """Raised when encoding is in incorrect form"""
 
 class IncorrectTimeoutError(Exception):
-    '''
-    Raised when timeout is in incorrect form
-    '''
+
+    """Raised when timeout is in incorrect form"""
 
 class IncorrectVerifyError(Exception):
-    '''
-    Raise when verify certificate is in incorrect form
-    '''
+
+    """Raise when verify certificate is in incorrect form"""
 
 
 class Config:
@@ -195,7 +190,7 @@ class Crawler:
         """
         url: Union[str, list, None] = article_bs.get('href')
         if isinstance(url, str) and \
-                'https://www.interfax-russia.ru/volga/news/' in url:
+            '/volga/news/' in url:
             return url
         return ''
 
@@ -210,31 +205,12 @@ class Crawler:
                 continue
             main_bs = BeautifulSoup(response.text, 'lxml')
             feed_lines = main_bs.find_all('a', {'class': 'd-block mb-0'})
-            for line in feed_lines[:num_arts]:
-                self.urls.append(self._extract_url(line))
+            for line in feed_lines:
+                if len(self.urls) >= num_arts:
+                    break
+                if link := self._extract_url(line):
+                    self.urls.append(link)
 
-        # WAS JUST TRYING ANOTHER WAY OF DYNAMIC SITE CRAWLING, I'LL DELETE IT LATER
-        # IT DOESN'T WORK FOR NO APPARENT REASONS...
-        # num_feed_lines = 0
-        # for url in self._seed_urls:
-        #     while num_feed_lines <= self.config.get_num_articles():
-        #         self.driver.get(url)
-        #         self.driver.implicitly_wait(10)
-        #         button = wait.WebDriverWait(self.driver, 10).until(
-        #             expected_conditions.presence_of_element_located((By.CLASS_NAME,
-        #                  "btn btn-show-more w-100 font-weight-bold")))
-                # button = [button for button in self.driver.find_elements(By.CLASS_NAME,
-                #          "btn btn-show-more w-100 font-weight-bold")][0]
-                # button.click()
-                # main_bs = BeautifulSoup(self.driver.page_source, 'lxml')
-                # feed_lines = main_bs.find_all('a', {'class': 'd-block mb-0'})
-                # button_find = main_bs.find_all('a',
-        #               {'class': 'btn btn-show-more w-100 font-weight-bold'})[0]
-                # print(button_find)
-            #     num_feed_lines += len(feed_lines)
-            # feed_lines += feed_lines[:self.config.get_num_articles()]
-            # for line in feed_lines:
-            #     self.urls.append(self._extract_url(line))
 
     def get_search_urls(self) -> list:
         """
@@ -301,10 +277,7 @@ class HTMLParser:
         """
         Parses each article
         """
-        response = requests.get(self.full_url,
-                                headers=self.config.get_headers(),
-                                timeout=self.config.get_timeout())
-        response.encoding = self.config.get_encoding()
+        response = make_request(self.full_url, self.config)
         b_s = BeautifulSoup(response.text, 'lxml')
         self._fill_article_with_text(b_s)
         self._fill_article_with_meta_information(b_s)
@@ -316,22 +289,19 @@ class RecursiveCrawler(Crawler):
     given only one seed URL and is able
     to recover crawling after interruption
     """
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         """
         Initializes an instance of the RecursiveCrawler class
         """
         super().__init__(config)
         self.start_url = self.config.get_seed_urls()[0]
         self.path_to_info = Path(__file__).parent / 'intermediate_info.json'
-        if not self.path_to_info.exists():
-            self.path_to_info.mkdir(parents=True)
-        self._info_dict = {}
+        self.path_to_info.touch()
 
     def find_articles(self) -> None:
         """
         Finds articles
         """
-        self.load_intermediate_information()
         num_arts = self.config.get_num_articles()
         response = make_request(self.start_url, self.config)
         main_bs = BeautifulSoup(response.text, 'lxml')
@@ -339,34 +309,38 @@ class RecursiveCrawler(Crawler):
         for url in feed_lines:
             if len(self.urls) >= num_arts:
                 break
-            if url in self.urls or not self._extract_url(url):
-                continue
             link = self._extract_url(url)
+            if link in self.urls or not link:
+                continue
             self.urls.append(link)
             self.save_intermediate_information()
-        self.start_url = feed_lines[0]
         while len(self.urls) < num_arts:
+            if self.start_url in self.urls:
+                index = self.urls.index(self.start_url)
+                self.start_url = self.urls[index+1]
+            else:
+                self.start_url = self.urls[0]
             self.find_articles()
 
-    def save_intermediate_information(self):
+    def save_intermediate_information(self) -> None:
         """
         Saves values of start_url and urls attributes
         in a json file
         """
-        self._info_dict['current_start_url'] = self.start_url
-        self._info_dict['current_urls'] = self.urls
+        info_dict = {'current_start_url': self.start_url,
+                     'current_urls': self.urls}
         with open(self.path_to_info, 'w', encoding='utf-8') as json_file:
-            json.dump(self._info_dict, json_file)
+            json.dump(info_dict, json_file)
 
-    def load_intermediate_information(self):
+    def load_intermediate_information(self) -> None:
         """
         Loads start_url and urls values, saved before interruption,
         from json file
         """
         with open(self.path_to_info, 'r', encoding='utf-8') as json_file:
-            self._info_dict = json.load(json_file)
-        self.start_url = self._info_dict['current_start_url']
-        self.urls = self._info_dict['current_urls']
+            info_dict = json.load(json_file)
+        self.start_url = info_dict['current_start_url']
+        self.urls = info_dict['current_urls']
 
 
 def prepare_environment(base_path: Union[Path, str]) -> None:
@@ -377,8 +351,7 @@ def prepare_environment(base_path: Union[Path, str]) -> None:
         shutil.rmtree(base_path)
     base_path.mkdir(parents=True)
 
-
-def main() -> None:
+def main1() -> None:
     """
     Entrypoint for scrapper module
     """
@@ -393,6 +366,23 @@ def main() -> None:
             to_raw(article)
             to_meta(article)
 
+def main2() -> None:
+    """
+    Entrypoint for scrapper module
+    """
+    prepare_environment(ASSETS_PATH)
+    configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
+    crawler = RecursiveCrawler(config=configuration)
+    crawler.load_intermediate_information()
+    crawler.find_articles()
+    for i, full_url in enumerate(crawler.urls, 1):
+        parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
+        article: Union[Article, bool, list] = parser.parse()
+        if isinstance(article, Article):
+            to_raw(article)
+            to_meta(article)
+
 
 if __name__ == "__main__":
-    main()
+    main1()
+    main2()
