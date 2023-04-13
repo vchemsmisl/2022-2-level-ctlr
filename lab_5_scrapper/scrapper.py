@@ -63,7 +63,7 @@ class Config:
         Initializes an instance of the Config class
         """
         self.path_to_config = path_to_config
-        self.config = Config._extract_config_content(self)
+        self.config = self._extract_config_content()
         self._validate_config_content()
 
         self._seed_urls = self.config.seed_urls
@@ -375,7 +375,8 @@ def main2() -> None:
     crawler = RecursiveCrawler(config=configuration)
     crawler.load_intermediate_information()
     crawler.find_articles()
-    for i, full_url in enumerate(crawler.urls, 1):
+    for i, full_url in enumerate(
+            crawler.urls[:configuration.get_num_articles()], 1):
         parser = HTMLParser(full_url=full_url, article_id=i, config=configuration)
         article: Union[Article, bool, list] = parser.parse()
         if isinstance(article, Article):
