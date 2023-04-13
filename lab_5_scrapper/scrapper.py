@@ -310,6 +310,64 @@ class HTMLParser:
         self._fill_article_with_meta_information(b_s)
         return self.article
 
+class RecursiveCrawler(Crawler):
+    """
+    A crawler, which gets all necessary links
+    given only one seed URL and is able
+    to recover crawling after interruption
+    """
+    def __init__(self, config: Config):
+        """
+        Initializes an instance of the RecursiveCrawler class
+        """
+        super().__init__(config)
+        self.start_url = self.config.get_seed_urls()[0]
+        self.path_to_info = Path(__file__).parent / 'intermediate_info.json'
+        if not self.path_to_info.exists():
+            self.path_to_info.mkdir(parents=True)
+        self._info_dict = {}
+
+    def find_articles(self) -> None:
+        """
+        Finds articles
+        """
+        self.load_intermediate_information()
+        num_arts = self.config.get_num_articles()
+        response = make_request(self.start_url, self.config)
+        main_bs = BeautifulSoup(response.text, 'lxml')
+        feed_lines = main_bs.find_all('a')
+        for url in feed_lines:
+            if len(self.urls) >= num_arts:
+                break
+            if url in self.urls or not self._extract_url(url):
+                continue
+            link = self._extract_url(url)
+            self.urls.append(link)
+            self.save_intermediate_information()
+        self.start_url = feed_lines[0]
+        while len(self.urls) < num_arts:
+            self.find_articles()
+
+    def save_intermediate_information(self):
+        """
+        Saves values of start_url and urls attributes
+        in a json file
+        """
+        self._info_dict['current_start_url'] = self.start_url
+        self._info_dict['current_urls'] = self.urls
+        with open(self.path_to_info, 'w', encoding='utf-8') as json_file:
+            json.dump(self._info_dict, json_file)
+
+    def load_intermediate_information(self):
+        """
+        Loads start_url and urls values, saved before interruption,
+        from json file
+        """
+        with open(self.path_to_info, 'r', encoding='utf-8') as json_file:
+            self._info_dict = json.load(json_file)
+        self.start_url = self._info_dict['current_start_url']
+        self.urls = self._info_dict['current_urls']
+
 
 def prepare_environment(base_path: Union[Path, str]) -> None:
     """
