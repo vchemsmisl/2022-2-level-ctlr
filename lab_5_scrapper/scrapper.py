@@ -373,7 +373,8 @@ def main2() -> None:
     prepare_environment(ASSETS_PATH)
     configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
     crawler = RecursiveCrawler(config=configuration)
-    crawler.load_intermediate_information()
+    if crawler.urls:
+        crawler.load_intermediate_information()
     crawler.find_articles()
     for i, full_url in enumerate(
             crawler.urls[:configuration.get_num_articles()], 1):
@@ -386,4 +387,3 @@ def main2() -> None:
 
 if __name__ == "__main__":
     main1()
-    main2()
