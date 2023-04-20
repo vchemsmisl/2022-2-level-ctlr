@@ -308,7 +308,6 @@ class RecursiveCrawler(Crawler):
         """
         num_arts = self.config.get_num_articles()
         regex = re.compile(r'https?://')
-        
         response = make_request(self.start_url, self.config)
         main_bs = BeautifulSoup(response.text, 'lxml')
         feed_lines = main_bs.find_all('a')
