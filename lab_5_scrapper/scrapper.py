@@ -404,4 +404,4 @@ def main2() -> None:
 
 
 if __name__ == "__main__":
-    main2()
+    main1()
