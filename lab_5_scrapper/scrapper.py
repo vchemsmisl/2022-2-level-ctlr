@@ -296,26 +296,38 @@ class RecursiveCrawler(Crawler):
         super().__init__(config)
         self.start_url = self.config.get_seed_urls()[0]
         self.path_to_info = Path(__file__).parent / 'intermediate_info.json'
+        if not self.path_to_info.exists():
+            self.path_to_info.touch()
         self.url_index = 0
-        if self.urls:
-            self.load_intermediate_information()
+        self.other_urls = []
+        self.load_intermediate_information()
 
     def find_articles(self) -> None:
         """
         Finds articles
         """
         num_arts = self.config.get_num_articles()
+        regex = re.compile(r'https?://')
+        
         response = make_request(self.start_url, self.config)
         main_bs = BeautifulSoup(response.text, 'lxml')
         feed_lines = main_bs.find_all('a')
         for url in feed_lines[self.url_index:]:
             if len(self.urls) >= num_arts:
-                break
+                return
             link = self._extract_url(url)
-            if link in self.urls or not link:
+            if not link:
+                link = url.get('href')
+                if link not in self.other_urls:
+                    if not re.match(regex, link):
+                        link = 'https://www.interfax-russia.ru' + link
+                    self.other_urls.append(link)
+                continue
+            if link in self.urls:
                 continue
             self.urls.append(link)
             self.save_intermediate_information(feed_lines.index(url))
+        self.url_index = 0
         while len(self.urls) < num_arts:
             if self.start_url in self.urls:
                 index = self.urls.index(self.start_url)
@@ -330,8 +342,9 @@ class RecursiveCrawler(Crawler):
         in a json file
         """
         info_dict = {'current_start_url': self.start_url,
+                     'current_url_idx': url_index,
                      'current_urls': self.urls,
-                     'current_url_idx': url_index}
+                     'current_other_urls': self.other_urls}
         with open(self.path_to_info, 'w', encoding='utf-8') as json_file:
             json.dump(info_dict, json_file)
 
@@ -341,10 +354,14 @@ class RecursiveCrawler(Crawler):
         from json file
         """
         with open(self.path_to_info, 'r', encoding='utf-8') as json_file:
-            info_dict = json.load(json_file)
+            try:
+                info_dict = json.load(json_file)
+            except json.decoder.JSONDecodeError:
+                return
         self.start_url = info_dict['current_start_url']
         self.urls = info_dict['current_urls']
         self.url_index = info_dict['current_url_idx']
+        self.other_urls = info_dict['current_other_urls']
 
 
 def prepare_environment(base_path: Union[Path, str]) -> None:
