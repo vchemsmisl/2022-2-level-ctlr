@@ -296,7 +296,9 @@ class RecursiveCrawler(Crawler):
         super().__init__(config)
         self.start_url = self.config.get_seed_urls()[0]
         self.path_to_info = Path(__file__).parent / 'intermediate_info.json'
-        self.path_to_info.touch()
+        self.url_index = 0
+        if self.urls:
+            self.load_intermediate_information()
 
     def find_articles(self) -> None:
         """
@@ -306,14 +308,14 @@ class RecursiveCrawler(Crawler):
         response = make_request(self.start_url, self.config)
         main_bs = BeautifulSoup(response.text, 'lxml')
         feed_lines = main_bs.find_all('a')
-        for url in feed_lines:
+        for url in feed_lines[self.url_index:]:
             if len(self.urls) >= num_arts:
                 break
             link = self._extract_url(url)
             if link in self.urls or not link:
                 continue
             self.urls.append(link)
-            self.save_intermediate_information()
+            self.save_intermediate_information(feed_lines.index(url))
         while len(self.urls) < num_arts:
             if self.start_url in self.urls:
                 index = self.urls.index(self.start_url)
@@ -322,13 +324,14 @@ class RecursiveCrawler(Crawler):
                 self.start_url = self.urls[0]
             self.find_articles()
 
-    def save_intermediate_information(self) -> None:
+    def save_intermediate_information(self, url_index: int) -> None:
         """
         Saves values of start_url and urls attributes
         in a json file
         """
         info_dict = {'current_start_url': self.start_url,
-                     'current_urls': self.urls}
+                     'current_urls': self.urls,
+                     'current_url_idx': url_index}
         with open(self.path_to_info, 'w', encoding='utf-8') as json_file:
             json.dump(info_dict, json_file)
 
@@ -341,6 +344,7 @@ class RecursiveCrawler(Crawler):
             info_dict = json.load(json_file)
         self.start_url = info_dict['current_start_url']
         self.urls = info_dict['current_urls']
+        self.url_index = info_dict['current_url_idx']
 
 
 def prepare_environment(base_path: Union[Path, str]) -> None:
@@ -373,8 +377,6 @@ def main2() -> None:
     prepare_environment(ASSETS_PATH)
     configuration = Config(path_to_config=CRAWLER_CONFIG_PATH)
     crawler = RecursiveCrawler(config=configuration)
-    if crawler.urls:
-        crawler.load_intermediate_information()
     crawler.find_articles()
     for i, full_url in enumerate(
             crawler.urls[:configuration.get_num_articles()], 1):
