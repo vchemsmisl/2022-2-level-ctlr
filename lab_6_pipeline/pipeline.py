@@ -10,16 +10,6 @@ from core_utils.article.ud import OpencorporaTagProtocol, TagConverter
 from core_utils.constants import ASSETS_PATH
 from core_utils.article.io import from_raw, to_cleaned
 
-class FileNotFoundError(Exception):
-    """
-    Raised if file does not exist
-    """
-
-class NotADirectoryError(Exception):
-    """
-    Raised if path does not lead to directory
-    """
-
 class InconsistentDatasetError(Exception):
     """
     Raised if IDs contain slips, number of meta
@@ -42,8 +32,8 @@ class CorpusManager:
         Initializes CorpusManager
         """
         self.path_to_raw_txt_data = path_to_raw_txt_data
-        self.json_files = list(self.path_to_raw_txt_data.glob('*.json'))
-        self.txt_files = list(self.path_to_raw_txt_data.glob('*.txt'))
+        self.json_files = list(self.path_to_raw_txt_data.glob('*_meta.json'))
+        self.txt_files = list(self.path_to_raw_txt_data.glob('*_raw.txt'))
         self._validate_dataset()
         self._storage = {}
         self._scan_dataset()
@@ -77,7 +67,9 @@ class CorpusManager:
         Register each dataset entry
         """
         for id, file in enumerate(self.txt_files, 1):
-            self._storage[id] = Article(file, id)
+            article = Article(file, id)
+            path_to_article = self.path_to_raw_txt_data / file
+            self._storage[id] = from_raw(path_to_article, article)
 
     def get_articles(self) -> dict:
         """
@@ -152,7 +144,11 @@ class ConlluSentence(SentenceProtocol):
         """
         Returns the lowercase representation of the sentence
         """
-        sentence_list = list(map(lambda token: token.get_cleaned(), self._tokens))
+        sentence_list = []
+        for token in self._tokens:
+            cleaned_token = token.get_cleaned()
+            if cleaned_token:
+                sentence_list.append(cleaned_token)
         return ' '.join(sentence_list)
 
     def get_tokens(self) -> list[ConlluToken]:
@@ -223,11 +219,9 @@ class MorphologicalAnalysisPipeline:
         """
         articles = self._corpus.get_articles()
         for id in articles:
-            path_to_article = articles[id].get_raw_text_path()
-            article = from_raw(path_to_article, articles[id])
-            sentences = self._process(article.text)
-            article.set_conllu_sentences(sentences)
-            to_cleaned(article)
+            sentences = self._process(articles[id].text)
+            articles[id].set_conllu_sentences(sentences)
+            to_cleaned(articles[id])
 
 
 class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):

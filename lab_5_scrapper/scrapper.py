@@ -317,8 +317,10 @@ class RecursiveCrawler(Crawler):
             link = self._extract_url(url)
             if not link:
                 link = url.get('href')
+                if not link:
+                    continue
                 if link not in self.other_urls:
-                    if not re.match(regex, link):
+                    if not re.match(regex, str(link)):
                         link = 'https://www.interfax-russia.ru' + link
                     self.other_urls.append(link)
                 continue
