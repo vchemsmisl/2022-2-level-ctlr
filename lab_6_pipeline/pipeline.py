@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import List
 import re
 
-from core_utils.article.article import SentenceProtocol, Article, split_by_sentence
+from core_utils.article.article import SentenceProtocol, \
+    get_article_id_from_filepath, \
+    Article, split_by_sentence
 from core_utils.article.ud import OpencorporaTagProtocol, TagConverter
 from core_utils.constants import ASSETS_PATH
 from core_utils.article.io import from_raw, to_cleaned
@@ -54,22 +56,21 @@ class CorpusManager:
         for json, txt in zip(self.json_files, self.txt_files):
             if not json.stat().st_size or not txt.stat().st_size:
                 raise InconsistentDatasetError("files are empty")
-        self.json_files = list(map(lambda link: link.name, self.json_files))
-        self.txt_files = list(map(lambda link: link.name, self.txt_files))
-        get_nums = lambda name: int(re.match(r'\d*', name).group(0))
-        json_nums = list(map(get_nums, self.json_files))
-        txt_nums = list(map(get_nums, self.txt_files))
-        if len_json != max(json_nums) or len_txt != max(txt_nums):
+        try:
+            json_max = max(map(get_article_id_from_filepath, self.json_files))
+            txt_max = max(map(get_article_id_from_filepath, self.txt_files))
+        except ValueError:
+            raise InconsistentDatasetError('files have no IDs in their names')
+        if len_json != json_max != txt_max:
             raise InconsistentDatasetError("files' IDs contain slips")
 
     def _scan_dataset(self) -> None:
         """
         Register each dataset entry
         """
-        for id, file in enumerate(self.txt_files, 1):
-            article = Article(file, id)
-            path_to_article = self.path_to_raw_txt_data / file
-            self._storage[id] = from_raw(path_to_article, article)
+        for file in self.txt_files:
+            idx = get_article_id_from_filepath(file)
+            self._storage[idx] = from_raw(file)
 
     def get_articles(self) -> dict:
         """
@@ -144,11 +145,8 @@ class ConlluSentence(SentenceProtocol):
         """
         Returns the lowercase representation of the sentence
         """
-        sentence_list = []
-        for token in self._tokens:
-            cleaned_token = token.get_cleaned()
-            if cleaned_token:
-                sentence_list.append(cleaned_token)
+        sentence_list = [token.get_cleaned() for token in self._tokens
+                         if token.get_cleaned()]
         return ' '.join(sentence_list)
 
     def get_tokens(self) -> list[ConlluToken]:
@@ -207,7 +205,7 @@ class MorphologicalAnalysisPipeline:
         """
         sentences = split_by_sentence(text)
         conllu_sentences = []
-        for idx, sent in enumerate(sentences, 1):
+        for idx, sent in enumerate(sentences):
             wordlist = sent.split()
             conllu_wordlist = [ConlluToken(txt) for txt in wordlist]
             conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
