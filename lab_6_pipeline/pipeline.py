@@ -63,7 +63,7 @@ class CorpusManager:
             txt_max = max(map(get_article_id_from_filepath, self.txt_files))
         except ValueError:
             raise InconsistentDatasetError('files have no IDs in their names')
-        if len_json != json_max != txt_max:
+        if len_json != json_max or len_txt != txt_max:
             raise InconsistentDatasetError("files' IDs contain slips")
 
     def _scan_dataset(self) -> None:
@@ -230,30 +230,9 @@ class MorphologicalAnalysisPipeline:
         Initializes MorphologicalAnalysisPipeline
         """
         self._corpus = corpus_manager
-        mapping_dir = Path(__file__).parent / 'data'
-        if not mapping_dir.exists():
-            mapping_dir.mkdir(parents=True)
-        mapping_file = mapping_dir / 'mystem_tags_mapping.json'
-        if not mapping_file.exists():
-            mapping_file.touch()
-        if not mapping_file.stat().st_size:
-            ud_mapping = {'POS': {'S': 'NOUN',
-                                  'SPRO': 'PRON',
-                                  'A': 'ADJ',
-                                  'ANUM': 'ADJ',
-                                  'APRO': 'ADJ',
-                                  'COM': 'ADJ',
-                                  'V': 'VERB',
-                                  'NUM': 'NUM',
-                                  'ADV': 'ADV',
-                                  'ADVPRO': 'ADV',
-                                  'PR': 'ADP',
-                                  'CONJ': 'CCONJ',
-                                  'PART': 'PART',
-                                  'INTJ': 'INTJ'}}
-            with open(mapping_file, 'w', encoding='utf-8') as json_file:
-                json.dump(ud_mapping, json_file)
+        mapping_file = Path(__file__).parent / 'data' / 'mystem_tags_mapping.json'
         self._tag_converter = MystemTagConverter(mapping_file)
+        self._analyzer = pymystem3.Mystem()
 
     def _process(self, text: str) -> List[ConlluSentence]:
         """
@@ -262,42 +241,32 @@ class MorphologicalAnalysisPipeline:
         sentences = split_by_sentence(text)
         conllu_sentences = []
         for idx, sent in enumerate(sentences):
-            sent_analyzed = pymystem3.Mystem().analyze(sent)
+            sent_analyzed = self._analyzer.analyze(sent)
             conllu_wordlist = []
             index = 1
             for word in sent_analyzed:
                 try:
                     tags_list = re.findall(r'\w+', word['analysis'][0]['gr'])
-                except KeyError:
+                    ud_tag = self._tag_converter.convert_pos(tags_list[0])
+                except (KeyError, IndexError):
                     if re.findall(r'\s+', word['text']):
                         continue
-                    conllu_token = ConlluToken(word['text'])
-                    conllu_token.set_position(index)
-                    index += 1
                     if patterns := re.findall(r'\d+', word['text']):
-                        conllu_token.set_morphological_parameters(
-                            MorphologicalTokenDTO(patterns[0], 'NUM'))
-                    elif patterns := re.findall(r'\.', word['text']):
-                        conllu_token.set_morphological_parameters(
-                            MorphologicalTokenDTO(patterns[0], 'PUNCT'))
-                    conllu_wordlist.append(conllu_token)
-                    continue
-                except IndexError:
-                    if patterns := re.findall(r'[A-Za-z]+', word['text']):
-                        conllu_token = ConlluToken(patterns[0])
-                        conllu_token.set_position(index)
-                        index += 1
-                        conllu_token.set_morphological_parameters(
-                            MorphologicalTokenDTO(patterns[0], 'X'))
-                        conllu_wordlist.append(conllu_token)
+                        ud_tag = 'NUM'
+                    elif patterns := re.findall(r'[.!?]', word['text']):
+                        ud_tag = 'PUNCT'
+                    elif patterns := re.findall(r'[A-Za-z]+', word['text']):
+                        ud_tag = 'X'
+                    else:
                         continue
-                    continue
-                ud_tag = self._tag_converter.convert_pos(tags_list[0])
-                conllu_token = ConlluToken(word['text'])
+                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
                 conllu_token.set_position(index)
                 index += 1
-                conllu_token.set_morphological_parameters(
-                    MorphologicalTokenDTO(word['analysis'][0]['lex'], ud_tag))
+                if 'analysis' in word and word['analysis']:
+                    token = MorphologicalTokenDTO(word['analysis'][0]['lex'], ud_tag)
+                else:
+                    token = MorphologicalTokenDTO(patterns[0], ud_tag)
+                conllu_token.set_morphological_parameters(token)
                 conllu_wordlist.append(conllu_token)
             conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
         return conllu_sentences
@@ -307,11 +276,11 @@ class MorphologicalAnalysisPipeline:
         Performs basic preprocessing and writes processed text to files
         """
         articles = self._corpus.get_articles()
-        for id in articles:
-            sentences = self._process(articles[id].text)
-            articles[id].set_conllu_sentences(sentences)
-            to_cleaned(articles[id])
-            to_conllu(articles[id])
+        for _, article in articles.items():
+            sentences = self._process(article.text)
+            article.set_conllu_sentences(sentences)
+            to_cleaned(article)
+            to_conllu(article)
 
 
 class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):

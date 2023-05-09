@@ -261,7 +261,7 @@ class HTMLParser:
             article_tags_li = article_tags.find_all('li')
             self.article.topics = [tag.text.replace('"', '&quot;')
                                    for tag in article_tags_li]
-        except IndexError:
+        except (IndexError, AttributeError):
             self.article.topics = []
         article_date = article_soup.find('meta', {'itemprop': 'datePublished'}).get('content')
         if isinstance(article_date, str):
