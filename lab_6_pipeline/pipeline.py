@@ -231,6 +231,8 @@ class MorphologicalAnalysisPipeline:
         """
         self._corpus = corpus_manager
         mapping_file = Path(__file__).parent / 'data' / 'mystem_tags_mapping.json'
+        if not mapping_file.exists():
+            mapping_file.touch()
         self._tag_converter = MystemTagConverter(mapping_file)
         self._analyzer = pymystem3.Mystem()
 
