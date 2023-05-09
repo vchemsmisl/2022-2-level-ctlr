@@ -1,0 +1,15 @@
+ {"POS": {"S": "NOUN",
+   "SPRO": "PRON",
+  "A": "ADJ",
+  "ANUM": "ADJ",
+  "APRO": "ADJ",
+  "COM": "ADJ",
+  "V": "VERB",
+  "NUM": "NUM",
+  "ADV": "ADV",
+  "ADVPRO": "ADV",
+  "PR": "ADP",
+  "CONJ": "CCONJ",
+  "PART": "PART",
+  "INTJ": "INTJ"}
+ }

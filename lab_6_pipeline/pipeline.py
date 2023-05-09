@@ -230,11 +230,7 @@ class MorphologicalAnalysisPipeline:
         Initializes MorphologicalAnalysisPipeline
         """
         self._corpus = corpus_manager
-        mapping_dir = Path(__file__).parent / 'data'
-        mapping_dir.mkdir(exist_ok=True)
-        mapping_file = mapping_dir / 'mystem_tags_mapping.json'
-        if not mapping_file.exists():
-            mapping_file.touch()
+        mapping_file = Path(__file__).parent / 'data' / 'mystem_tags_mapping.json'
         self._tag_converter = MystemTagConverter(mapping_file)
         self._analyzer = pymystem3.Mystem()
 
