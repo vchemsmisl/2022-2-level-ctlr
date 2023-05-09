@@ -196,6 +196,11 @@ class MystemTagConverter(TagConverter):
         """
         Converts the Mystem tags into the UD format
         """
+        part_of_speech = self.convert_pos(re.findall(r'[A-Z]+', tags)[0])
+        gramm_categories = {'NOUN': [self.gender, self.animacy, self.case, self.number],
+                            'ADJ': [self.gender, self.animacy, self.case, self.number],
+                            'VERB': [self.tense, self.number, self.gender],
+                            'PRON': [self.number, self.case]}
         try:
             tags_list1 = re.findall(r'(?![A-Z]+).+(?==)',
                                tags)[0].replace(',', ' ').strip().split()
@@ -205,16 +210,23 @@ class MystemTagConverter(TagConverter):
             tags_list2 = re.findall(r'(?<==\().*?(?=\|)', tags)[0].split(',')
         else:
             tags_list2 = re.findall(r'(?<==).*', tags)[0].split(',')
-        ud_tags_list1 = [self._tag_mapping[tag] for tag in tags_list1 if tag in self._tag_mapping]
-        ud_tags_list2 = [self._tag_mapping[tag] for tag in tags_list2 if tag in self._tag_mapping]
-        ud_tags_list1.extend(ud_tags_list2)
-        return '|'.join(sorted(ud_tags_list1)) if ud_tags_list2 else '_'
+        tags_list1.extend(tags_list2)
+        ud_tags_list = []
+        for tag in tags_list1:
+            if part_of_speech in gramm_categories:
+                for categ in gramm_categories[part_of_speech]:
+                    if tag in self._tag_mapping[categ]:
+                        ud_tags_list.append(f'{categ}={self._tag_mapping[categ][tag]}')
+                        continue
+            else:
+                return '_'
+        return '|'.join(sorted(ud_tags_list))
 
     def convert_pos(self, tags: str) -> str:  # type: ignore
         """
         Extracts and converts the POS from the Mystem tags into the UD format
         """
-        return self._tag_mapping[tags]
+        return self._tag_mapping[self.pos][tags]
 
 
 class OpenCorporaTagConverter(TagConverter):
