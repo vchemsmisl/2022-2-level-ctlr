@@ -130,12 +130,12 @@ class ConlluToken:
         """
         String representation of the token for conllu files
         """
-        if not include_morphological_tags:
-            return f'{self._position}\t{self._text}\t' \
+        tags = self._morphological_parameters.tags \
+            if include_morphological_tags else '_'
+        return f'{self._position}\t{self._text}\t' \
                f'{self._morphological_parameters.lemma}\t' \
                f'{self._morphological_parameters.pos}\t' \
-               f'_\t_\t0\troot\t_\t_'
-        return ''
+               f'_\t{tags}\t0\troot\t_\t_'
 
     def get_cleaned(self) -> str:
         """
@@ -196,12 +196,25 @@ class MystemTagConverter(TagConverter):
         """
         Converts the Mystem tags into the UD format
         """
+        try:
+            tags_list1 = re.findall(r'(?![A-Z]+).+(?==)',
+                               tags)[0].replace(',', ' ').strip().split()
+        except IndexError:
+            tags_list1 = []
+        if '|' in tags:
+            tags_list2 = re.findall(r'(?<==\().*?(?=\|)', tags)[0].split(',')
+        else:
+            tags_list2 = re.findall(r'(?<==).*', tags)[0].split(',')
+        ud_tags_list1 = [self._tag_mapping[tag] for tag in tags_list1 if tag in self._tag_mapping]
+        ud_tags_list2 = [self._tag_mapping[tag] for tag in tags_list2 if tag in self._tag_mapping]
+        ud_tags_list1.extend(ud_tags_list2)
+        return '|'.join(sorted(ud_tags_list1)) if ud_tags_list2 else '_'
 
     def convert_pos(self, tags: str) -> str:  # type: ignore
         """
         Extracts and converts the POS from the Mystem tags into the UD format
         """
-        return self._tag_mapping['POS'][tags]
+        return self._tag_mapping[tags]
 
 
 class OpenCorporaTagConverter(TagConverter):
@@ -246,26 +259,27 @@ class MorphologicalAnalysisPipeline:
             index = 1
             for word in sent_analyzed:
                 try:
-                    tags_list = re.findall(r'\w+', word['analysis'][0]['gr'])
-                    ud_tag = self._tag_converter.convert_pos(tags_list[0])
+                    patterns = re.findall(r'\w+', word['analysis'][0]['gr'])
+                    pos_tag = self._tag_converter.convert_pos(patterns[0])
                 except (KeyError, IndexError):
                     if re.findall(r'\s+', word['text']):
                         continue
                     if patterns := re.findall(r'\d+', word['text']):
-                        ud_tag = 'NUM'
+                        pos_tag = 'NUM'
                     elif patterns := re.findall(r'[.!?]', word['text']):
-                        ud_tag = 'PUNCT'
+                        pos_tag = 'PUNCT'
                     elif patterns := re.findall(r'[A-Za-z]+', word['text']):
-                        ud_tag = 'X'
+                        pos_tag = 'X'
                     else:
                         continue
                 conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
                 conllu_token.set_position(index)
                 index += 1
                 if 'analysis' in word and word['analysis']:
-                    token = MorphologicalTokenDTO(word['analysis'][0]['lex'], ud_tag)
+                    morph_tags = self._tag_converter.convert_morphological_tags(word['analysis'][0]['gr'])
+                    token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos_tag, morph_tags)
                 else:
-                    token = MorphologicalTokenDTO(patterns[0], ud_tag)
+                    token = MorphologicalTokenDTO(patterns[0], pos_tag, '_')
                 conllu_token.set_morphological_parameters(token)
                 conllu_wordlist.append(conllu_token)
             conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
@@ -280,7 +294,7 @@ class MorphologicalAnalysisPipeline:
             sentences = self._process(article.text)
             article.set_conllu_sentences(sentences)
             to_cleaned(article)
-            to_conllu(article)
+            to_conllu(article, include_morphological_tags=True)
 
 
 class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
