@@ -1,11 +1,10 @@
 """
 Pipeline for CONLL-U formatting
 """
-import json
 from pathlib import Path
 from typing import List
 import pymystem3
-import json
+import pymorphy2
 import re
 
 from core_utils.article.article import SentenceProtocol, \
@@ -184,6 +183,7 @@ class ConlluSentence(SentenceProtocol):
         """
         Returns sentences from ConlluSentence
         """
+        return self._tokens
 
 
 
@@ -200,7 +200,8 @@ class MystemTagConverter(TagConverter):
         gramm_categories = {'NOUN': [self.gender, self.animacy, self.case, self.number],
                             'ADJ': [self.gender, self.animacy, self.case, self.number],
                             'VERB': [self.tense, self.number, self.gender],
-                            'PRON': [self.number, self.case]}
+                            'PRON': [self.number, self.case],
+                            'NUM': [self.gender, self.case, self.animacy]}
         try:
             tags_list1 = re.findall(r'(?![A-Z]+).+(?==)',
                                tags)[0].replace(',', ' ').strip().split()
@@ -212,15 +213,14 @@ class MystemTagConverter(TagConverter):
             tags_list2 = re.findall(r'(?<==).*', tags)[0].split(',')
         tags_list1.extend(tags_list2)
         ud_tags_list = []
-        for tag in tags_list1:
-            if part_of_speech in gramm_categories:
+        if part_of_speech in gramm_categories:
+            for tag in tags_list1:
                 for categ in gramm_categories[part_of_speech]:
                     if tag in self._tag_mapping[categ]:
                         ud_tags_list.append(f'{categ}={self._tag_mapping[categ][tag]}')
-                        continue
-            else:
-                return '_'
-        return '|'.join(sorted(ud_tags_list))
+            return '|'.join(sorted(ud_tags_list))
+        return '_'
+
 
     def convert_pos(self, tags: str) -> str:  # type: ignore
         """
@@ -238,11 +238,31 @@ class OpenCorporaTagConverter(TagConverter):
         """
         Extracts and converts POS from the OpenCorpora tags into the UD format
         """
+        return self._tag_mapping[self.pos][tags.POS] if tags.POS else 'X'
 
     def convert_morphological_tags(self, tags: OpencorporaTagProtocol) -> str:  # type: ignore
         """
         Converts the OpenCorpora tags into the UD format
         """
+        gramm_categories = {'NOUN': [self.gender, self.animacy, self.case, self.number],
+                            'ADJ': [self.gender, self.animacy, self.case, self.number],
+                            'VERB': [self.tense, self.number, self.gender],
+                            'PRON': [self.number, self.case],
+                            'NUM': [self.gender, self.case, self.animacy]}
+        oc_to_ud = {self.gender: tags.gender,
+                    self.case: tags.case,
+                    self.animacy: tags.animacy,
+                    self.number: tags.number,
+                    self.tense: tags.tense}
+        pos = self.convert_pos(tags)
+        ud_tags_list = []
+        if pos in gramm_categories:
+            for categ in gramm_categories[pos]:
+                if not oc_to_ud[categ]:
+                    continue
+                ud_tags_list.append(f'{categ}={self._tag_mapping[categ][oc_to_ud[categ]]}')
+            return '|'.join(sorted(ud_tags_list))
+        return '_'
 
 
 class MorphologicalAnalysisPipeline:
@@ -318,19 +338,68 @@ class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
         """
         Initializes MorphologicalAnalysisPipeline
         """
+        super().__init__(corpus_manager)
+        mapping_file = Path(__file__).parent / 'data' / 'opencorpora_tags_mapping.json'
+        self._backup_tag_converter = OpenCorporaTagConverter(mapping_file)
+        self._backup_analyzer = pymorphy2.MorphAnalyzer()
 
     def _process(self, text: str) -> List[ConlluSentence]:
         """
         Returns the text representation as the list of ConlluSentence
         """
+        sentences = split_by_sentence(text)
+        conllu_sentences = []
+        for idx, sent in enumerate(sentences):
+            sent_analyzed = self._analyzer.analyze(sent)
+            conllu_wordlist = []
+            index = 1
+            for word in sent_analyzed:
+                if 'analysis' in word and word['analysis']:
+                        pos = re.findall(r'\w+', word['analysis'][0]['gr'])[0]
+                elif patterns := re.findall(r'[A-Za-z]+', word['text']):
+                    pos_tag = 'X'
+                elif patterns := re.findall(r'\d+', word['text']):
+                    pos_tag = 'NUM'
+                elif patterns := re.findall(r'[.!?]', word['text']):
+                    pos_tag = 'PUNCT'
+                else:
+                    continue
+                if 'analysis' in word and word['analysis']:
+                    if pos == 'S':
+                        oc_tag = self._backup_analyzer.tag(word['text'])[0]
+                        pos_tag = self._backup_tag_converter.convert_pos(oc_tag)
+                        morph_tag = self._backup_tag_converter.convert_morphological_tags(oc_tag)
+                        token = MorphologicalTokenDTO(
+                            self._backup_analyzer.normal_forms(word['text'])[0], pos_tag, morph_tag)
+                    else:
+                        pos_tag = self._tag_converter.convert_pos(pos)
+                        morph_tag = self._tag_converter.convert_morphological_tags(word['analysis'][0]['gr'])
+                        token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos_tag, morph_tag)
+                else:
+                    token = MorphologicalTokenDTO(patterns[0], pos_tag, '_')
+                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
+                conllu_token.set_position(index)
+                index += 1
+                conllu_token.set_morphological_parameters(token)
+                conllu_wordlist.append(conllu_token)
+            conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
+        return conllu_sentences
 
     def run(self) -> None:
         """
         Performs basic preprocessing and writes processed text to files
         """
+        articles = self._corpus.get_articles()
+        for _, article in articles.items():
+            sentences = self._process(article.text)
+            article.set_conllu_sentences(sentences)
+            to_cleaned(article)
+            to_conllu(article,
+                      include_morphological_tags=True,
+                      include_pymorphy_tags=True)
 
 
-def main() -> None:
+def main1() -> None:
     """
     Entrypoint for pipeline module
     """
@@ -338,6 +407,15 @@ def main() -> None:
     pipeline = MorphologicalAnalysisPipeline(manager)
     pipeline.run()
 
+def main2() -> None:
+    """
+    Entrypoint for pipeline module
+    """
+    manager = CorpusManager(ASSETS_PATH)
+    pipeline = AdvancedMorphologicalAnalysisPipeline(manager)
+    pipeline.run()
+
 
 if __name__ == "__main__":
-    main()
+    # main1()
+    main2()
