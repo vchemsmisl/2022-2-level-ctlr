@@ -71,7 +71,9 @@ class CorpusManager:
         """
         for file in self.txt_files:
             idx = get_article_id_from_filepath(file)
-            self._storage[idx] = from_raw(file)
+            article = from_raw(file)
+            article.url = file.name
+            self._storage[idx] = article
 
     def get_articles(self) -> dict:
         """

@@ -5,11 +5,13 @@ from typing import Optional
 from pathlib import Path
 import re
 from collections import Counter
-from core_utils.article.article import Article, ArtifactType
+from core_utils.article.article import Article, ArtifactType, get_article_id_from_filepath
 from lab_6_pipeline.pipeline import ConlluToken, CorpusManager, \
     ConlluSentence, MorphologicalTokenDTO
 from core_utils.constants import ASSETS_PATH
 from core_utils.article.ud import extract_sentences_from_raw_conllu
+from core_utils.article.io import from_meta, to_meta
+from core_utils.visualizer import visualize
 
 class EmptyFileError(Exception):
     """
@@ -74,12 +76,17 @@ class POSFrequencyPipeline:
         Visualizes the frequencies of each part of speech
         """
         articles = self._manager.get_articles()
-        for art in articles:
-            if not art.url.stat().st_size:
+        for _, art in articles.items():
+            url = ASSETS_PATH / art.url
+            if not url.stat().st_size:
                 raise EmptyFileError('an article file is empty')
+            art_path = art.get_meta_file_path()
+            art = from_meta(art_path, art)
             path = art.get_file_path(ArtifactType.FULL_CONLLU)
             art = from_conllu(path, art)
             art.set_pos_info(self._count_frequencies(art))
+            to_meta(art)
+            visualize(art, Path(ASSETS_PATH / f'{get_article_id_from_filepath(url)}_image.png'))
 
 
     def _count_frequencies(self, article: Article) -> dict[str, int]:
