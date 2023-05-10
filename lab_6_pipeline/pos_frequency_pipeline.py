@@ -82,7 +82,9 @@ class POSFrequencyPipeline:
                 raise EmptyFileError('an article file is empty')
             art_path = art.get_meta_file_path()
             art = from_meta(art_path, art)
-            path = art.get_file_path(ArtifactType.FULL_CONLLU)
+            path = art.get_file_path(ArtifactType.MORPHOLOGICAL_CONLLU)
+            if not path.stat().st_size:
+                raise EmptyFileError('a CONLL-U article file is empty')
             art = from_conllu(path, art)
             art.set_pos_info(self._count_frequencies(art))
             to_meta(art)
