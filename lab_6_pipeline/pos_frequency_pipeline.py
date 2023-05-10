@@ -4,6 +4,7 @@ Implementation of POSFrequencyPipeline for score ten only.
 from typing import Optional
 from pathlib import Path
 import re
+from collections import Counter
 from core_utils.article.article import Article, ArtifactType
 from lab_6_pipeline.pipeline import ConlluToken, CorpusManager, \
     ConlluSentence, MorphologicalTokenDTO
@@ -11,7 +12,9 @@ from core_utils.constants import ASSETS_PATH
 from core_utils.article.ud import extract_sentences_from_raw_conllu
 
 class EmptyFileError(Exception):
-    """ puk """
+    """
+    Raised when an article file is empty
+    """
 
 def from_conllu(path: Path, article: Optional[Article] = None) -> Article:
     """
@@ -72,9 +75,12 @@ class POSFrequencyPipeline:
         """
         articles = self._manager.get_articles()
         for art in articles:
+            if not art.url.stat().st_size:
+                raise EmptyFileError('an article file is empty')
             path = art.get_file_path(ArtifactType.FULL_CONLLU)
             art = from_conllu(path, art)
-            freqs = self._count_frequencies(art)
+            art.set_pos_info(self._count_frequencies(art))
+
 
     def _count_frequencies(self, article: Article) -> dict[str, int]:
         """
@@ -85,6 +91,7 @@ class POSFrequencyPipeline:
         for sent in sentences:
             tokens.extend(sent.get_tokens())
         tokens_pos = [token.get_morphological_parameters().pos for token in tokens]
+        return Counter(tokens_pos)
 
 
 def main() -> None:
