@@ -251,16 +251,20 @@ class OpenCorporaTagConverter(TagConverter):
         """
         Converts the OpenCorpora tags into the UD format
         """
-        gramm_categories = {'NOUN': [self.gender, self.animacy, self.case, self.number],
+        gramm_categories = {
+            'NOUN': [self.gender, self.animacy, self.case, self.number],
                             'ADJ': [self.gender, self.animacy, self.case, self.number],
                             'VERB': [self.tense, self.number, self.gender],
                             'PRON': [self.number, self.case],
-                            'NUM': [self.gender, self.case, self.animacy]}
-        oc_to_ud = {self.gender: tags.gender,
-                    self.case: tags.case,
-                    self.animacy: tags.animacy,
-                    self.number: tags.number,
-                    self.tense: tags.tense}
+                            'NUM': [self.gender, self.case, self.animacy]
+        }
+        oc_to_ud = {
+            self.gender: tags.gender,
+            self.case: tags.case,
+            self.animacy: tags.animacy,
+            self.number: tags.number,
+            self.tense: tags.tense
+        }
         pos = self.convert_pos(tags)
         if pos not in gramm_categories:
             return '_'
