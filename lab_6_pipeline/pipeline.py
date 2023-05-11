@@ -316,7 +316,7 @@ class MorphologicalAnalysisPipeline:
                     morph_tags = self._tag_converter.convert_morphological_tags(word['analysis'][0]['gr'])
                     token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos, morph_tags)
                 else:
-                    token = MorphologicalTokenDTO(patterns[0], pos_tag, '_')
+                    token = MorphologicalTokenDTO(patterns[0].replace(' ', ''), pos_tag, '_')
                 conllu_token.set_morphological_parameters(token)
                 conllu_wordlist.append(conllu_token)
             conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
@@ -381,7 +381,7 @@ class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
                         morph_tag = self._tag_converter.convert_morphological_tags(word['analysis'][0]['gr'])
                         token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos, morph_tag)
                 else:
-                    token = MorphologicalTokenDTO(patterns[0], pos_tag, '_')
+                    token = MorphologicalTokenDTO(patterns[0].replace(' ', ''), pos_tag, '_')
                 conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
                 conllu_token.set_position(index)
                 index += 1
