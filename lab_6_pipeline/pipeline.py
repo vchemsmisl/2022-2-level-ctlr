@@ -305,18 +305,18 @@ class MorphologicalAnalysisPipeline:
                     pos_tag = 'X'
                 elif patterns := re.findall(r'\d+', word['text']):
                     pos_tag = 'NUM'
-                elif patterns := re.findall(r'[.!?]', word['text'].replace(' ', '')):
+                elif patterns := re.findall(r'[.!?]', word['text'].strip()):
                     pos_tag = 'PUNCT'
                 else:
                     continue
-                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0].replace(' ', ''))
+                conllu_token = ConlluToken(word['text'].strip()) if word['text'] else ConlluToken(patterns[0].strip())
                 conllu_token.set_position(index)
                 index += 1
                 if 'analysis' in word and word['analysis']:
                     morph_tags = self._tag_converter.convert_morphological_tags(word['analysis'][0]['gr'])
                     token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos, morph_tags)
                 else:
-                    token = MorphologicalTokenDTO(patterns[0].replace(' ', ''), pos_tag, '_')
+                    token = MorphologicalTokenDTO(patterns[0].strip(), pos_tag, '_')
                 conllu_token.set_morphological_parameters(token)
                 conllu_wordlist.append(conllu_token)
             conllu_sentences.append(ConlluSentence(idx, sent, conllu_wordlist))
@@ -366,7 +366,7 @@ class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
                     pos_tag = 'X'
                 elif patterns := re.findall(r'\d+', word['text']):
                     pos_tag = 'NUM'
-                elif patterns := re.findall(r'[.!?]', word['text'].replace(' ', '')):
+                elif patterns := re.findall(r'[.!?]', word['text'].strip()):
                     pos_tag = 'PUNCT'
                 else:
                     continue
@@ -382,7 +382,7 @@ class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
                         token = MorphologicalTokenDTO(word['analysis'][0]['lex'], pos, morph_tag)
                 else:
                     token = MorphologicalTokenDTO(patterns[0].replace(' ', ''), pos_tag, '_')
-                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
+                conllu_token = ConlluToken(word['text'].strip()) if word['text'] else ConlluToken(patterns[0].strip())
                 conllu_token.set_position(index)
                 index += 1
                 conllu_token.set_morphological_parameters(token)
