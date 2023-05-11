@@ -225,7 +225,7 @@ class MystemTagConverter(TagConverter):
                        for tag in tags_list
                        if tag in self._tag_mapping[categ]]
             ud_tags_list.extend(ud_tags)
-        return '|'.join(sorted(ud_tags_list))
+        return '|'.join(sorted(ud_tags_list)) if ud_tags_list else '_'
 
 
     def convert_pos(self, tags: str) -> str:  # type: ignore
@@ -271,7 +271,7 @@ class OpenCorporaTagConverter(TagConverter):
         ud_tags_list = [f'{categ}={self._tag_mapping[categ][oc_to_ud[categ]]}'
                         for categ in gramm_categories[pos]
                         if oc_to_ud[categ]]
-        return '|'.join(sorted(ud_tags_list))
+        return '|'.join(sorted(ud_tags_list)) if ud_tags_list else '_'
 
 
 class MorphologicalAnalysisPipeline:
