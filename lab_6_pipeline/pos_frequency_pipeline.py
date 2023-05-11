@@ -48,13 +48,10 @@ def _parse_conllu_token(token_line: str) -> ConlluToken:
     '2	произошло	происходить	VERB	_	Gender=Neut|Number=Sing|Tense=Past	0	root	_	_'
     """
     token_features = token_line.split('\t')
-    token = ConlluToken(token_features[1])
-    token.set_position(int(token_features[0]))
-    token.set_morphological_parameters(MorphologicalTokenDTO(
-        token_features[2],
-        token_features[3],
-        token_features[5]
-    ))
+    position, word, lemma, pos, _, tags, *_ = token_features
+    token = ConlluToken(word)
+    token.set_position(int(position))
+    token.set_morphological_parameters(MorphologicalTokenDTO(lemma, pos, tags))
     return token
 
 
@@ -96,10 +93,9 @@ class POSFrequencyPipeline:
         Counts POS frequency in Article
         """
         sentences = article.get_conllu_sentences()
-        tokens = []
-        for sent in sentences:
-            tokens.extend(sent.get_tokens())
-        tokens_pos = [token.get_morphological_parameters().pos for token in tokens]
+        tokens_pos = [token.get_morphological_parameters().pos
+                      for sent in sentences
+                      for token in sent.get_tokens()]
         return Counter(tokens_pos)
 
 
