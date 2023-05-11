@@ -305,11 +305,11 @@ class MorphologicalAnalysisPipeline:
                     pos_tag = 'X'
                 elif patterns := re.findall(r'\d+', word['text']):
                     pos_tag = 'NUM'
-                elif patterns := re.findall(r'[.!?]', word['text']):
+                elif patterns := re.findall(r'[.!?]', word['text'].replace(' ', '')):
                     pos_tag = 'PUNCT'
                 else:
                     continue
-                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0])
+                conllu_token = ConlluToken(word['text']) if word['text'] else ConlluToken(patterns[0].replace(' ', ''))
                 conllu_token.set_position(index)
                 index += 1
                 if 'analysis' in word and word['analysis']:
@@ -366,7 +366,7 @@ class AdvancedMorphologicalAnalysisPipeline(MorphologicalAnalysisPipeline):
                     pos_tag = 'X'
                 elif patterns := re.findall(r'\d+', word['text']):
                     pos_tag = 'NUM'
-                elif patterns := re.findall(r'[.!?]', word['text']):
+                elif patterns := re.findall(r'[.!?]', word['text'].replace(' ', '')):
                     pos_tag = 'PUNCT'
                 else:
                     continue
